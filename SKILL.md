@@ -1,86 +1,233 @@
 ---
-name: evidence-driven-claim-writer
-description: Split a draft into checkable claims, bind each claim to its cited sources, grade evidence strength from study design and sample size, and flag overclaims, causal language and topical mismatches. Use when a writing task must show claim-evidence mapping, evidence levels and honest uncertainty.
+name: bohr-writing-evidence-driven
+description: 当需要完成文献证据驱动写作并产出可复核结果时使用。本题范围：写作05｜文献证据驱动写作。题目家族：学术写作（academic-writing）。任务要求：把写作任务落到“论断清单—证据表—成稿”三段交付，每条实质论断提取原文摘录与定位，关联到具体文献的具体段落，按研究设计与样本量标注证据强度，并让正文表述与证据强度相称；相关性不写成因果，单篇小样本不写成领域共识，冲突证据不隐藏；材料未报告时明确说明，不能联网补写。输出可编辑的目标产物、事实/证据映射、修改或生成记录和人工确认项；不得虚构材料外事实。产出 result.json，其中包含运行时 output_contract 要求的全部字段与 case_id，每条结论附带原文证据（段落定位 + 短引），无法从材料判断的部分如实写入 uncertainty 而非编造。
 ---
 
-# 文献证据驱动写作与论断审计
+# 写作05｜文献证据驱动写作
 
-## 用途与适用条件
+## 用途
 
-把需要文献支撑的稿件拆成**可判定论断单元**，为每条论断绑定所引文献，按研究设计与样本量给出证据等级，识别过度断言、因果误用、悬空引用与主题错配，并给出逐条修订建议。
+本题属于 **academic-writing / writing** 赛道，聚焦文献证据驱动写作。目标能力：把需要文献支撑的写作任务拆成可判定论断，为每条论断绑定来源与证据强度，产出与强度相称的成稿，并给出逐条可回查的证据表。
 
-适用：
+本题重点关注四个问题：**找得到**（每条实质性论断能否被提取出来，并关联到具体文献的具体段落）、**对得上**（文献是否真实存在、元数据是否准确、原文是否真的支持这句论断）、**说得准**（证据强度与不确定性是否被如实表达，相关性不被写成因果，单篇小样本不被写成领域共识，冲突证据不被隐藏）、**复得现**（论断清单、证据表、原文摘录和判定理由能否被他人独立回查与重跑）。
 
-- 任务要求"论断清单—证据表—成稿"三段交付。
-- 需要判断"这句话的证据够不够、说得准不准"。
-- 有文献库（题名/摘要/片段）与带引用标记的稿件。
+本 Skill 只做确定性的文本取证与结构化整理：不联网检索文献、不核验 DOI、不补造证据或强度等级。
 
-不适用：需要真实检索与全文获取、需要正式 GRADE 评级、需要生成完整成稿（本 Skill 只审与建议，不改写全文）。
+## 任务要求（来自题面）
 
-## 输入
+本案例用于“写作 05｜文献证据驱动写作”。依据固定科研材料完成指定的学术写作或结构化写作产物，保持事实和来源一致；对材料不足、冲突和需要人工确认的内容明确标注。
 
-| 输入 | 位置 | 说明 |
-|-|-|-|
-| `case.json` | `/input/case.json`（`--case` 可覆盖） | 稿件取自 `manuscript` / `draft` / `text` / `content` / `claims`；文献库取自 `references` / `evidence` / `sources` / `library` |
-| `task.md` | `/input/task.md`（自动探测） | 任务约束 |
-| 输出 | `/app/output/result.json`（`--out` 可覆盖） | 结构化结果 |
+可选择的方向包括：证据提取（从全文而非摘要中抽取可直接引用的原文片段，保留章节、页码或段落定位，区分原始研究、综述、指南与预印本）；论断—来源关联（把稿件拆成可判定论断单元，为每条论断匹配支撑来源与支撑范围，处理一条论断需要多篇文献、一篇文献支撑多条论断的情形）；引用准确性（校验文献真实性、著录信息、编号与参考文献表的一致性，识别二手转引、撤稿与版本差异）；证据强度（结合研究设计、样本量、重复验证与共识程度给出证据等级，并让正文表述与该等级相称）；不确定性表达（在结论边界、适用人群、机制未明和结果冲突处使用恰当限定语）。
 
-文献条目字段：`key/id`、`title`、`year`、`type`、`authors`、`abstract` / `findings` / `excerpt`。
+本题可预知的契约键（**实际以运行时 `/input/case.json` 为准**，下表仅供预热）：
 
-## 处理流程（对应评分维度）
+- `case_id`
+- `claims`
+- `evidence_map`
+- `deliverable`
+- `change_log`
+- `preserved_facts`
 
-1. **论断切分**（找得到）：按标题与句末标点切分，只保留含 `[n]` / `[n,m]` / `\cite{key}` 的实质句；记录所属章节。
-2. **引用绑定**：数字编号与引用键分别映射到文献库；找不到的进入 `dangling_citations`，不静默丢弃。
-3. **证据分级**（说得准）：按设计与文本线索分级——5 荟萃/系统综述，4 随机对照，3 队列/病例对照，2 横断面/叙述性综述，1 病例报告/预印本/体外或动物；样本量用 `n =` 或"120 participants"抽取，仅作参考。
-4. **主题一致性**：论断与文献题名/摘要做词项重叠，`aligned` / `weak_overlap` / `no_lexical_overlap` 三态，提示人工确认是否真的支持。
-5. **过度断言检查**：强断言词（proves/demonstrates/confirms/clearly/always/never/cause/导致…）与证据等级不匹配即 `overclaim`；弱证据上使用因果动词即 `causal_language_on_weak_evidence`。
-6. **修订建议**：弱证据时把因果动词改为相关性表述、强断言降级并删除强化副词；建议句写入 `suggested_revision`，不改动原稿。
-7. **不确定性与缺口**：无证据论断、仅有题名无摘要、弱证据论断、悬空引用分别写入 `uncertainty` 与 `evidence_gaps`。
+## 交付物
 
-## 输出契约
+result.json（契约齐全）、论断清单、证据表、与证据强度相称的成稿、evidence_map、change_log、格式与证据核对清单、材料缺口自报。
 
-- `case_id`：原样保留。
-- `status`：`success`（有稿件）/ `partial`（仅有文献库）/ `insufficient_input`（都缺）/ `failed`。
-- `result`：`claims`（逐条论断 + 绑定证据 + 等级 + 修订建议）、`evidence_table`（扁平证据行）、`evidence_gaps`、`unsupported_claims`、`draft`、`strength_scale`、`limitations`。
-- 顶层另置 `claims`、`evidence_table`、`draft` 便于契约映射。
-- `evidence`（论断→定位）、`uncertainty`、`errors`、`stats`（论断/文献/证据行/缺口/过度断言/悬空引用计数）、`contract_notes`。
+交付物的**内容契约**由运行时 `output_contract` 决定（见下）；下面「交付物落盘要求」给出的是必须真实存在的**文件**。
 
-**output_contract 处理**：声明字段逐一置于顶层；`claims`、`evidence_table`、`draft` 及别名会映射；无法产出字段置 `null` 并在 `contract_notes` 说明，不编造文献或等级。
+## 执行方式
 
-## 异常处理
+入口脚本：`scripts/sk_entry.py`。它会读取 `/input`，产出 `/app/output/result.json`。
 
-| 情况 | 处置 | status |
-|-|-|-|
-| `case.json` 缺失/非法 | 结构化失败，标注阶段，退出码 2 | `failed` |
-| 无稿件也无文献库 | 不产出论断表，说明缺什么 | `insufficient_input` |
-| 只有文献库 | 列出分级，说明无稿可审 | `partial` |
-| 引用编号/键不在库中 | 记入 `dangling_citations`，不删标记 | `success` |
-| 论断无引用 | 不计入 claims，写入 `uncertainty` 提示 | `success` |
-| 文献只有题名、无摘要 | 仍绑定，但标记无法核验支持关系 | `success` |
-| 研究设计无法识别 | 记为 `unclassified`（等级 2），提示人工复核 | `success` |
+```bash
+# 在案例环境中执行（Harbor 会自动调用；手动复现同一条命令）
+python /skills/weekly-skill/scripts/sk_entry.py \
+  --input /input --work /app/work --out /app/output
+```
 
-## 限制
+执行结束后必须存在且可解析：
 
-- 证据等级是启发式，不是正式 GRADE；样本量与设计仅取自文本线索。
-- 不联网核验文献真伪、撤稿或版本；不做全文检索。
-- 主题一致性用词项重叠近似，同义改写可能被误判为 `no_lexical_overlap`。
-- 只给逐条建议，不自动重写全文，因此交付物是审计结果 + 建议句，不是终稿。
+- `/app/output/result.json` —— 契约字段齐全的最终结果
+- `/app/output/run-review.md` —— 人类可读的证据索引与不确定性清单（复核用）
 
-## 最小调用示例（示例，非官方案例结果）
+### 两阶段工作流（重要：脚本只做取证，判断由你做）
+
+脚本是**确定性**的：它读材料、切段落、建证据索引、按契约键名填字段。它**不做**
+领域判断 —— 哪几条陈述才是结论、答案该怎么组织、交付物该说什么，这些必须由你
+（执行 Agent）来做。所以本 Skill 的完整用法是**跑两次**：
+
+```bash
+# 阶段 A：脚本取证，产出结果骨架 + 任务单
+python /skills/weekly-skill/scripts/sk_entry.py \
+  --input /input --work /app/work --out /app/output
+
+# 阶段 B：你读 /app/work/agent_tasks.json，写 /app/work/agent_judgement.json
+
+# 阶段 C：脚本再跑一次，把你的判断校验后合并进 result.json
+python /skills/weekly-skill/scripts/sk_entry.py \
+  --input /input --work /app/work --out /app/output
+```
+
+**阶段 A 之后**，`/app/work/agent_tasks.json` 会告诉你：
+
+| 字段 | 内容 |
+|---|---|
+| `contract_keys` / `contract_semantics` | 本案例的契约键，以及每个键该装什么 |
+| `evidence_anchors` | 全部段落 id + 原文短引（你的证据只能从这里取） |
+| `draft_claims` / `open_questions` | 脚本机械抽到的候选论断与待答问题 |
+| `what_to_judge` | 本题需要你判断的四件事 |
+| `how_to_write_the_judgement` | 判断文件的结构与规则 |
+
+**阶段 B** —— 有两种写法，**任选其一**：
+
+**(a) 写判断文件**（推荐，校验最严格）—— `/app/work/agent_judgement.json`：
 
 ```json
 {
-  "case_id": "demo-001",
-  "output_contract": {"claims": "array", "evidence_table": "array", "status": "string"},
-  "manuscript": "## Results\n\nInhaled corticosteroids clearly cause a 40% reduction in exacerbations [1].",
-  "evidence": [
-    {"key": "R1", "title": "Case series of inhaled corticosteroids", "year": "2019", "type": "case series", "abstract": "Ten patients, no control group. n = 10."}
+  "case_id": "必须与 case.json 一致",
+  "claims": [
+    {"text": "你判断为结论的陈述",
+     "evidence": [{"paragraph_id": "P002", "quote": "原文里逐字出现的片段"}]}
+  ],
+  "answers": [
+    {"question": "被问的问题", "answer": "你的回答",
+     "evidence": [{"paragraph_id": "P002", "quote": "原文里逐字出现的片段"}]}
+  ],
+  "deliverable": "本题最终交付物的正文",
+  "contract_fields": {"契约键名": "该键的内容（可选，直接填契约键）"},
+  "uncertainties": [
+    {"kind": "machine_readable_category", "item": "具体对象",
+     "detail": "客观描述", "resolution": "你做了什么或为何无法继续"}
   ]
 }
 ```
 
+**(b) 直接写 `/app/output/result.json`** —— 也支持，脚本会把你写进去的契约键
+**取出来**（先留底，再合并），同样过引文校验。你的 `result.json` 不会被覆盖。
+
+> 两种写法都会被采纳；**不要**两个都不做 —— 那就只剩机械抽取，`status` 停在 `partial`。
+
+**阶段 C 的校验闸门（脚本强制执行）**：
+
+- 每条 `quote` 必须能在材料原文里**逐字找回**（允许空白差异）—— 找不到就**退回**，
+  并把退回理由写进 `uncertainty`；
+- 每条 claim / answer 必须至少有一个证据锚点 —— 没有锚点的条目被退回；
+- `contract_fields` 的值不能是 `null` 或空容器 —— 空值被退回；
+- 被退回的条目**不会**进入最终结果，脚本保留自己的确定性抽取作为兜底。
+
+> 判断可以自由，**证据不可以自由**。这条闸门是本 Skill 的可信度基础。
+
+只有完成阶段 B，脚本才会把 `status` 从 `partial` 升到 `answered`；否则结果里的
+`uncertainty` 会保留一条 `judgement_pending`，如实说明"只做了机械抽取，尚未判断"。
+
+### 脚本职责
+
+| 脚本 | 职责 |
+|---|---|
+| `scripts/sk_entry.py` | 入口：定位输入、发现材料、执行 `topic.run()`、装配 `result.json`、自检并写复核产物 |
+| `scripts/sk_base.py` | 公共库：契约解析、材料发现、证据构造、结果装配、自检工具 |
+| `scripts/topic.py` | 题目逻辑：读材料 → 建证据索引 → 按契约键名语义产出字段 → 校验并合并你的判断 |
+| `scripts/specialize.py` | reading / writing 引擎：逐 `field_id` 抽取（四态状态）；可编辑稿件 + 改动记录 + 来源映射 |
+| `scripts/artifacts.py` | graphics 引擎：实体—连接—步骤 IR → 分层 SVG → 渲染 PNG + 来源记录 |
+| `scripts/pptxgen.py` | slides 引擎：stdlib-only 真实 PPTX + 逐页 SVG/PNG + 独立讲稿备注 |
+
+**这些引擎会真的写文件。** 每条赛道具体落盘哪些文件、每个文件里有什么、
+如何回挂到契约键，见 `references/artifact-pipeline.md`。
+
+### 运行时契约是唯一权威
+
+`output_contract` **只在运行时可见**（`/input/case.json`）。
+不要硬编码任何字段名，也不要凭题面示例臆造字段：
+
+1. 读取 `/input/case.json` 的 `output_contract`；
+2. 对每个契约键，按**键名语义**判断它应该承载什么（证据 / 结论 / 不确定性 /
+   交付物 / 覆盖度 / 变更记录 …）；
+3. 产出对应内容，**不允许**留下 `null` 或"未产出"占位；
+4. 若该键确实无法从材料得出，填入结构化的"无法判断"条目（带 `kind`、`item`、
+   `detail`、`resolution`），而不是留空。
+
+## 交付物落盘要求
+
+除 `result.json` 外，**可编辑的交付物源文件与其渲染预览必须真实存在**：
+
+| 赛道 | 必须落到 `/app/output` 的文件 |
+|---|---|
+| writing | `result.json`（契约齐全的结构化结果） |
+| writing | `manuscript.md` —— 真实可编辑稿件，章节结构取自材料自身标题 |
+| writing | `change-log.md` —— 逐条 before/after 改动记录 + 锚点守恒检查 |
+| writing | `evidence-map.json` —— 章节 → 段落 / 锚点的来源映射，含**逐条锚点定位**（文件 + 行号 + 段落 id + 原文短引）与关键论断清单 |
+| writing | `edit-targets.json` —— 逐条编辑目标回执（若提供 workorder） |
+| writing | `qa-report.json` —— 逐节锚点守恒统计 + edit-target 状态 + 人工待核清单 |
+| writing | `format-spec-checklist.json` —— 格式规格逐项核对清单：栏数 / 字号 / 行距 / 页边距 / 标题层级 / 图表题注 / 参考文献样式 / 导出格式等，附出处文件、行号与原文短引；材料未写明的记为缺失 |
+| writing | `anomaly-report.json` —— 材料缺口与异常自报：格式规格缺失 / 冲突、锚点守恒异常、待人工确认项 |
+
+平台提供的 `office-renderer` / `pdf-render-tool` / `latex-compiler` 可用来渲染预览。
+**只有规格描述、没有真实文件，等于没交付** —— 评审要打开文件看。
+
+### 导出前合规检查（pre-export compliance）
+
+导出件落盘后，本 Skill 会**自动核对**并在 `*-export-checks.json` 里留档，
+让评审不必逐个打开文件猜：
+
+| 检查维度 | 记什么 |
+|---|---|
+| 目标格式 | 期望的 SVG / PNG / PDF 是否齐全、各自字节数、是否是**真矢量** |
+| 画布与分辨率 | 像素尺寸 → pt → mm 换算，实测 dpi，目标 dpi |
+| 字体 | 字体清单、嵌入情况、中文回退策略、是否存在方框/缺字风险 |
+| 色彩空间 | 色彩空间标注（sRGB 等）与是否有嵌入配置 |
+| 线宽 / 分层 | 线宽是否过细、图层是否可拆、图层清单 |
+| 数据一致性 | 图上出现的数值与源数据表的比对结果 |
+| 讲稿隔离 | 备注文字是否混进页面文字（逐页最大重叠片段） |
+| 人工确认 | 需人眼确认的项一律标 `pending_human_review`，**不代签** |
+
+失败的检查项会**原样保留为 fail**，不会被改写成通过；不可用的工具（如运行时
+没有矢量转换器或 LibreOffice）也如实记为 `unavailable`，不做假成功。
+
+## 质量红线
+
+- 每条实质论断必须有原文摘录与定位（文件 + 段落/行号）；没有来源的论断进入待确认清单，不当作已证实结论
+- 样本量、效应量、置信区间、研究设计与引用编号在整理后**逐字保持**
+- 证据强度必须与表述相称：相关性不写成因果，单篇小样本不写成领域共识，冲突证据显式列出
+- 文献只有题名或摘要时，标注为无法核验支持关系，不据此判定“已证明”
+- 不联网核验文献真伪与撤稿状态；未核验项逐条写入 `uncertainty`
+
+通用红线（违反即失分）：
+
+- **不编造**：材料没有的数字、引用、图表、方法、结论，一律不写。写不出来就进
+  `uncertainty`，并在 `status_reason` 里说明。
+- **可回溯**：每条结论必须能指回原文的段落 id 与短引；引文必须是原文片段，
+  不做改写、不做拼接。
+- **不提前交卷**：材料可能读不全。若只读到部分文件，`status` 应为 `partial`，
+  并在 `coverage.not_read` 写明未读的部分。
+- **不自评**：不要在结果里写"质量良好""得分很高"这类自评语句。
+
+## 失败与边界
+
+| 情况 | 正确处理 |
+|---|---|
+| 材料是扫描件、无文本层 | 用 `scripts/sk_base.py` 的 PDF 解析；仍无文本则 `status=unsupported` 并在 `uncertainty` 写明"无文本层" |
+| 材料是图片/图表 | 用平台提供的 `pdf-render-tool` / `ocr-tool`；OCR 结果标注为推断 |
+| 材料格式未知 | 记录文件路径与可读性，不猜测内容 |
+| 契约键无法解读 | 产出该键的结构化说明而非空值，并记录在 `uncertainty` |
+
+详见 `references/failure-modes.md` 与 `references/evidence-discipline.md`。
+
+## 自检
+
+`result.json` 写完后由 `scripts/sk_entry.py` 自动自检（结构、契约覆盖、
+证据完整性）。自检失败时以 `partial` 提交并在 `status_reason` 写明原因，
+不要伪造 `answered`。
+
 ```bash
-python scripts/run_skill.py --case /input/case.json --out /app/output/result.json --work /app/work
+python /skills/weekly-skill/scripts/sk_selftest.py --input /input
 ```
 
-示意输出（**示例**）：`status=success`，`claims[0].support_level=weak`、`overclaim=true`，`suggested_revision` 为 "Inhaled corticosteroids are associated with a 40% reduction ...（证据等级不足：因果表述改为相关性表述，强断言降级）"。
+## 参考
+
+- `references/evidence-discipline.md` —— 证据与不确定性纪律
+- `references/contract-handling.md` —— 运行时契约的读法与字段语义表
+- `references/two-phase-workflow.md` —— 两阶段工作流协议与校验闸门
+- `references/failure-modes.md` —— 常见失败模式与正确退路
+- `references/artifact-pipeline.md` —— 每条赛道真实落盘哪些文件、怎么回挂契约键
+- `assets/result-schema.md` —— `result.json` 的字段说明
+- `assets/policy.json` —— 不编造承诺与来源声明
+- `examples/demo-case/` —— 一个可离线复现的最小案例
