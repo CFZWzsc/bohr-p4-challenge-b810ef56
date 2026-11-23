@@ -1,0 +1,19 @@
+{
+ "case_id": "demo-challenge-b810ef56",
+ "topic_id": "challenge-b810ef56",
+ "topic_title": "写作05｜文献证据驱动写作",
+ "difficulty": 1,
+ "domain": "writing",
+ "task_instruction": "演示用例：读取同目录的文献证据与稿件材料，整理论断清单与证据表，标注证据强度与不确定性，指出过度断言与冲突证据；无法判断的写入 uncertainties。",
+ "output_contract": {
+  "claims": "可判定论断清单，含原文摘录、定位、证据强度与不确定性表述",
+  "evidence_map": "每条论断到支撑文献条目与原文片段的映射",
+  "deliverable": "与证据强度相称的成稿正文",
+  "change_log": "过度断言、因果误用与悬空引用的修订记录",
+  "preserved_facts": "样本量、效应量、置信区间与引用编号不可凭空改变",
+  "case_id": "原样保留"
+ },
+ "evaluation": {
+  "mode": "demo"
+ }
+}
