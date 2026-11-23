@@ -15,7 +15,7 @@ description: Split a draft into checkable claims, bind each claim to its cited s
 - 需要判断"这句话的证据够不够、说得准不准"。
 - 有文献库（题名/摘要/片段）与带引用标记的稿件。
 
-不适用：需要真实检索与全文获取、需要正式 GRADE 评级、需要生成完整成稿（本 Skill 只审与建议，不改写全文）。
+不适用：需要真实联网检索与全文获取、需要正式 GRADE 评级。写作类任务须按「交付保证」输出带引用标记与证据分级的可用正文 `result.draft`，不只交审计表。
 
 ## 输入
 
