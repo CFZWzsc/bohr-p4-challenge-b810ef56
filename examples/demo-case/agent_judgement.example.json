@@ -1,0 +1,43 @@
+{
+  "_comment": [
+    "阶段 B 的判断文件模板。复制到 /app/work/agent_judgement.json 后按实际材料填写。",
+    "quote 必须是材料里的逐字片段 —— 脚本会逐条校验，找不到就退回。",
+    "case_id 必须与 /input/case.json 里的 case_id 一致。",
+    "本文件是合成示例，段落 id 取自 examples/demo-case/material.md。"
+  ],
+  "case_id": "demo-challenge-b810ef56",
+  "claims": [
+    {
+      "text": "综述 C 指出整体证据质量中等且异质性较大，不支持“已证明改善所有患者”的强断言。",
+      "kind": "reported",
+      "evidence": [
+        {
+          "paragraph_id": "P004",
+          "quote": "系统综述纳入 18 项研究，结论认为证据质量中等，异质性较大。"
+        }
+      ]
+    }
+  ],
+  "answers": [
+    {
+      "question": "稿件原句“已被证明能够显著改善所有患者的结局”是否有足够证据？",
+      "answer": "不足。已有 RCT 与系统综述，但综述报告证据质量中等、异质性较大，且存在单中心小样本研究，应降级为相关性表述并限定适用人群。",
+      "evidence": [
+        {
+          "paragraph_id": "P004",
+          "quote": "系统综述纳入 18 项研究，结论认为证据质量中等，异质性较大。"
+        }
+      ]
+    }
+  ],
+  "deliverable": "（示例）依据材料写成的目标产物正文；实际运行时由执行 Agent 按题面填写。",
+  "contract_fields": {},
+  "uncertainties": [
+    {
+      "kind": "evidence_conflict",
+      "item": "研究 A vs 综述 C",
+      "detail": "材料明确写明两者对效应大小的判断不一致",
+      "resolution": "在成稿中并列报告两种结论，未强行统一"
+    }
+  ]
+}
