@@ -15,7 +15,7 @@ description: Split a draft into checkable claims, bind each claim to its cited s
 - 需要判断"这句话的证据够不够、说得准不准"。
 - 有文献库（题名/摘要/片段）与带引用标记的稿件。
 
-不适用：需要真实联网检索与全文获取、需要正式 GRADE 评级。写作类任务须按「交付保证」输出带引用标记与证据分级的可用正文 `result.draft`，不只交审计表。
+不适用：需要真实检索与全文获取、需要正式 GRADE 评级、需要生成完整成稿（本 Skill 只审与建议，不改写全文）。
 
 ## 输入
 
@@ -84,42 +84,3 @@ python scripts/run_skill.py --case /input/case.json --out /app/output/result.jso
 ```
 
 示意输出（**示例**）：`status=success`，`claims[0].support_level=weak`、`overclaim=true`，`suggested_revision` 为 "Inhaled corticosteroids are associated with a 40% reduction ...（证据等级不足：因果表述改为相关性表述，强断言降级）"。
-
-
-## 自查清单
-
-- [ ] `case_id` 与合同字段保留；未映射项已登记。
-- [ ] 每条论断都绑定证据或进入 `evidence_gaps`。
-- [ ] 强断言与证据等级不匹配处均已标 `overclaim`。
-- [ ] `draft` 使用降级表述并保留原引用标记。
-- [ ] 未编造文献、等级或结论。
-
-## 交付保证与评分对齐
-
-调用顺序（固定）：
-
-1. 先运行包内脚本（若存在）：`python scripts/run_skill.py`（默认读 `/input/case.json`，写 `/app/output/result.json`）；路径不同时用 `--case` / `--output` 指定。
-2. **必须交付完整成品**：脚本只做论断切分与分级；调用 Agent 必须补全 `claims`、`evidence_table`、`evidence_gaps`，并按证据强度写出**带降级表述的可用正文** `result.draft`（弱证据改相关性表述、保留引用标记）；不得只交审计表、`pending` 或“不改写全文”。
-3. 最后自检：`case_id` 与输入一致；`output_contract` 每个字段都存在；`status` 取本合同允许值 `success | partial | insufficient_input | failed`；正文无 `pending`/`TODO`/空占位；数字、引用、来源可逐条回溯。
-
-运行保证：
-
-- 输入缺失、JSON 损坏、字段异常、输出目录不存在时，仍须写出结构化 `result.json` 并正常结束，不得崩溃或非零退出。
-- 不联网、不伪造数据、不声称平台评分或官方案例结果。
-- 交付物必须是可直接编辑与复核的成品，而不是流程说明。
-
-评分对齐（本题五个维度）：
-
-- 实际效果（40）：完整产出任务要求的最终成品，覆盖全部输入条目，可直接进入修改流程。
-- 使用增益（25）：体现相对基础 Agent 的可验证改进（结构化、术语/数字/引用核对、可编辑性）。
-- 创新增益（15）：保留方法学增量（分块、对齐、二次校验、版本比对等），并用结果证明其价值。
-- 可靠体验（10）：异常输入有明确降级与说明，不同长度/文体/重复运行下稳定产出。
-- 生态贡献（10）：用途、调用、输入输出、限制、示例、维护信息齐全，资源可被他人复用。
-
-## 最终交付强制要求
-
-1. **调用 Agent 必须交付成品，不是流程说明**：脚本产出只是索引、核对或规格骨架；调用 Agent 必须在同一 `result.json` 中补齐本题要求的最终产物（正文/译文/审稿意见/综述/分析结论/图表源文件与导出件/幻灯片页内容与讲稿/实验方案等）。交付字段为空、只有标题骨架，或含 `pending`、`TODO` 之类占位，一律视为未完成。
-2. **必须覆盖全部输入条目**：输入中的每个章节、问题、文献、图、页面、指标都要有对应条目，不得只处理示例或首条；确实缺失的条目写入 `uncertainty` / `limitations` 并说明原因，不得静默跳过。
-3. **必须自检后再交付**：`case_id` 与输入一致；`output_contract` 每个字段都存在；状态值取本题契约规定的枚举；数字、单位、引用、来源可逐条回溯；结果内部无自相矛盾。
-4. **参数等价**：`python scripts/run_skill.py --case <输入> --out <输出>` 与 `--output <输出>` 等价；默认 `/input/case.json` → `/app/output/result.json`。
-5. **平台用 3 个固定案例分别运行**：逻辑要由输入驱动，不针对某一份示例硬编码；字段命名差异走别名匹配与显式降级，并在 `uncertainty` 记录假设。
