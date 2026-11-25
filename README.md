@@ -2,9 +2,9 @@
 
 本题：写作05｜文献证据驱动写作（challenge-b810ef56，赛道 writing）。
 
-能力定位：把写作任务拆成可判定论断，绑定来源与证据强度，产出与强度相称且逐条可回查的成稿
+能力定位：产出论断—证据表（强度/方向/出处/逐字短引/过度归纳）并校正稿件表述，每条论断可回溯到段落。
 
-交付物：result.json（契约齐全）、论断清单、证据表、成稿、evidence_map、change_log
+交付物：evidence-table.md、evidence-table.json、manuscript-corrected.md、strength-summary.json
 
 
 ## 这个 Skill 做什么
