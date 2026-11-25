@@ -30,7 +30,7 @@ description: 当需要完成文献证据驱动写作并产出可复核结果时�
 
 ## 交付物
 
-result.json（契约齐全）、论断清单、证据表、与证据强度相称的成稿、evidence_map、change_log、格式与证据核对清单、材料缺口自报。
+evidence-table.md、evidence-table.json、manuscript-corrected.md、strength-summary.json
 
 交付物的**内容契约**由运行时 `output_contract` 决定（见下）；下面「交付物落盘要求」给出的是必须真实存在的**文件**。
 
